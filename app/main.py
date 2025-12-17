@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from .queue import get_queue, get_redis
+from app.worker import process_job
 
 DATA_DIR = Path("app/data")
 UPLOADS_DIR = DATA_DIR / "uploads"
@@ -73,13 +74,12 @@ async def upload(
 
     q = get_queue()
     q.enqueue(
-        "app.worker.process_job",
-        job_id=job_id,
-        video_paths=saved_files,
-        output_dir=str(job_output_dir),
-        frame_interval=frame_interval,
-        job_timeout=60 * 60 * 3  # up to 3 hours
-    )
+    process_job,
+    video_paths=saved_files,
+    output_dir=str(job_output_dir),
+    frame_interval=frame_interval,
+    job_timeout=60 * 60 * 3
+)
 
     return RedirectResponse(url=f"/jobs/{job_id}", status_code=303)
 

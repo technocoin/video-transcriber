@@ -16,7 +16,11 @@ def update(job_id: str, **fields):
     r.hset(f"job:{job_id}", mapping=mapping)
 
 
-def process_job(job_id: str, video_paths: list[str], output_dir: str, frame_interval: int):
+from rq import get_current_job
+
+def process_job(*, video_paths: list[str], output_dir: str, frame_interval: int):
+    job = get_current_job()
+    job_id = job.id if job else "unknown"
     out_base = Path(output_dir)
     out_base.mkdir(parents=True, exist_ok=True)
 
