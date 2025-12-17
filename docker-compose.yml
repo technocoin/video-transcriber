@@ -7,7 +7,7 @@ services:
   web:
     build: .
     ports:
-      - "8000:8000"
+      - "8050:8050"
     volumes:
       - ./app/data:/app/app/data
       - ./app/templates/template.docx:/app/app/templates/template.docx
