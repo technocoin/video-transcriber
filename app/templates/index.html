@@ -1,0 +1,24 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Upload Videos → DOCX</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <div class="wrap">
+    <h1>Upload Videos → Word Transcripts</h1>
+    <p>Select one or more videos. You’ll be redirected to a progress page.</p>
+
+    <form action="/upload" method="post" enctype="multipart/form-data">
+      <label>Video files</label>
+      <input type="file" name="videos" accept="video/*" multiple required />
+
+      <label>Frame interval (seconds)</label>
+      <input type="number" name="frame_interval" min="1" max="10" value="2" />
+
+      <button type="submit">Start Job</button>
+    </form>
+  </div>
+</body>
+</html>

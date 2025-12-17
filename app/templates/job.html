@@ -1,0 +1,56 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Job {{ job_id }}</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <div class="wrap">
+    <h1>Job Progress</h1>
+    <p><b>Job ID:</b> {{ job_id }}</p>
+
+    <div class="progress">
+      <div id="bar" class="bar" style="width:0%"></div>
+    </div>
+    <p id="status">Loading…</p>
+
+    <div id="downloads" style="margin-top:16px;"></div>
+
+    <p style="margin-top:20px;"><a href="/">Start another job</a></p>
+  </div>
+
+<script>
+async function refresh() {
+  const res = await fetch(`/api/jobs/{{ job_id }}`);
+  if (!res.ok) {
+    document.getElementById('status').innerText = "Job not found.";
+    return;
+  }
+  const data = await res.json();
+  const pct = parseInt(data.progress || "0", 10);
+  document.getElementById('bar').style.width = pct + "%";
+  document.getElementById('status').innerText =
+    `${data.status} — ${pct}% — ${data.message} (done ${data.done_files}/${data.total_files})`;
+
+  if (data.status === "done") {
+    const d = document.getElementById('downloads');
+    const items = data.result_index || [];
+    if (items.length) {
+      d.innerHTML = "<h3>Downloads</h3>" + items.map((it, idx) =>
+        `<div style="margin:8px 0;">
+           <b>${it.video}</b> —
+           <a href="/download/{{ job_id }}/${idx}">Download DOCX</a>
+         </div>`
+      ).join("");
+    } else {
+      d.innerHTML = "<p>No outputs found.</p>";
+    }
+    return;
+  }
+  setTimeout(refresh, 1500);
+}
+refresh();
+</script>
+</body>
+</html>
