@@ -32,6 +32,7 @@ Transcription	OpenAI Whisper (local)
 Media Processing	FFmpeg
 Document Output	python-docx
 Deployment	Docker + Docker Compose
+
 📂 Project Structure
 video-transcriber/
 │
