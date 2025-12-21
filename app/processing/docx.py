@@ -3,39 +3,59 @@ from docx.shared import Pt
 from pathlib import Path
 
 
-def create_docx(
-    output_path: str,
+def generate_docx(
     video_name: str,
-    transcript_segments: list[dict],
-):
+    transcript: list[dict],
+    frames: list[str],
+    output_dir: str,
+) -> str:
+    """
+    Generate a DOCX transcript file with timestamps.
+    Returns the path to the created DOCX file.
+    """
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    output_path = output_dir / f"{video_name}.docx"
+
     doc = Document()
 
+    # -----------------------------
     # Title
+    # -----------------------------
     title = doc.add_heading(video_name, level=1)
-    title.alignment = 1
+    title.alignment = 1  # center
 
     doc.add_paragraph("")
 
-    for seg in transcript_segments:
-        start = _format_time(seg["start"])
-        end = _format_time(seg["end"])
-        text = seg["text"].strip()
+    # -----------------------------
+    # Transcript body
+    # -----------------------------
+    for seg in transcript:
+        start = _format_time(seg.get("start", 0))
+        end = _format_time(seg.get("end", 0))
+        text = seg.get("text", "").strip()
+
+        if not text:
+            continue
 
         p = doc.add_paragraph()
-        run = p.add_run(f"[{start} → {end}] ")
-        run.bold = True
-        run.font.size = Pt(10)
 
-        run2 = p.add_run(text)
-        run2.font.size = Pt(11)
+        ts = p.add_run(f"[{start} → {end}] ")
+        ts.bold = True
+        ts.font.size = Pt(10)
+
+        content = p.add_run(text)
+        content.font.size = Pt(11)
 
         doc.add_paragraph("")
 
-    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     doc.save(output_path)
+
+    return str(output_path)
 
 
 def _format_time(seconds: float) -> str:
-    m = int(seconds // 60)
-    s = int(seconds % 60)
-    return f"{m:02d}:{s:02d}"
+    minutes = int(seconds // 60)
+    seconds = int(seconds % 60)
+    return f"{minutes:02d}:{seconds:02d}"
