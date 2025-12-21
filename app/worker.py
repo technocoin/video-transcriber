@@ -1,80 +1,90 @@
-from rq import Worker
-from .queue import get_queue, get_redis
-
-from pathlib import Path
-import json
 import os
-
-from .processing import process_video_to_rows
-from .docx_export import rows_to_docx
-
-
-def update(job_id: str, **fields):
-    r = get_redis()
-    # convert to strings
-    mapping = {k: str(v) for k, v in fields.items()}
-    r.hset(f"job:{job_id}", mapping=mapping)
-
+import json
+from pathlib import Path
 
 from rq import get_current_job
 
-def process_job(*, video_paths: list[str], output_dir: str, frame_interval: int):
+from app.progress import update_progress
+from app.processing.audio import extract_audio
+from app.processing.whisper import transcribe_audio
+from app.processing.frames import extract_frames
+from app.processing.docx import generate_docx
+
+
+def process_job(video_paths, output_dir, frame_interval):
     job = get_current_job()
-    job_id = job.id if job else "unknown"
-    out_base = Path(output_dir)
-    out_base.mkdir(parents=True, exist_ok=True)
+    job_id = job.id
 
-    update(job_id, status="running", progress=0, message="Starting job")
-
+    total_files = len(video_paths)
     results = []
-    total = max(1, len(video_paths))
-    done = 0
 
-    for vp in video_paths:
-        done += 1
-        video_path = Path(vp)
-        video_stem = video_path.stem
+    update_progress(
+        job_id,
+        status="running",
+        progress=5,
+        message="Job started",
+        done_files=0,
+    )
 
-        # per-video output folder (Dropbox-like within job)
-        per_video_dir = out_base / video_stem
-        per_video_dir.mkdir(parents=True, exist_ok=True)
+    for index, video_path in enumerate(video_paths, start=1):
+        video_name = Path(video_path).name
+        base_percent = int(((index - 1) / total_files) * 100)
+        step = int(100 / total_files)
 
-        update(
+        update_progress(
             job_id,
-            message=f"Processing {video_path.name} ({done}/{total})",
-            done_files=done-1,
-            progress=int(((done-1) / total) * 100)
+            message=f"Extracting audio from {video_name}",
+            progress=base_percent + int(step * 0.2),
         )
 
-        rows = process_video_to_rows(
-            video_path=str(video_path),
-            job_dir=str(per_video_dir),
-            frame_interval_seconds=frame_interval,
-        )
+        audio_path = extract_audio(video_path)
 
-        docx_path = per_video_dir / f"{video_stem}_transcript.docx"
-        rows_to_docx(rows, str(docx_path), template_path="app/templates/template.docx")
-
-        results.append({
-            "video": video_path.name,
-            "docx_path": str(docx_path)
-        })
-
-        update(
+        update_progress(
             job_id,
-            done_files=done,
-            progress=int((done / total) * 100),
-            result_index=json.dumps(results)
+            message=f"Transcribing {video_name}",
+            progress=base_percent + int(step * 0.4),
         )
 
-    update(job_id, status="done", message="All files processed", progress=100)
+        transcript = transcribe_audio(audio_path)
 
+        update_progress(
+            job_id,
+            message=f"Extracting frames from {video_name}",
+            progress=base_percent + int(step * 0.6),
+        )
 
-def main():
-    q = get_queue()
-    w = Worker([q], connection=q.connection)
-    w.work(with_scheduler=True)
+        frames = extract_frames(video_path, interval=frame_interval)
 
+        update_progress(
+            job_id,
+            message=f"Generating DOCX for {video_name}",
+            progress=base_percent + int(step * 0.85),
+        )
 
-if __name__ == "__main__":
-    main()
+        docx_path = generate_docx(
+            video_name=video_name,
+            transcript=transcript,
+            frames=frames,
+            output_dir=output_dir,
+        )
+
+        results.append(
+            {
+                "video": video_name,
+                "docx_path": docx_path,
+            }
+        )
+
+        update_progress(
+            job_id,
+            done_files=index,
+            progress=base_percent + step,
+        )
+
+    update_progress(
+        job_id,
+        status="done",
+        progress=100,
+        message="All files processed",
+        result_index=results,
+    )
