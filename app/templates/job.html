@@ -13,43 +13,79 @@
     <div class="progress">
       <div id="bar" class="bar" style="width:0%"></div>
     </div>
+
     <p id="status">Loading…</p>
 
     <div id="downloads" style="margin-top:16px;"></div>
 
-    <p style="margin-top:20px;"><a href="/">Start another job</a></p>
+    <p style="margin-top:20px;">
+      <a href="/">Start another job</a>
+    </p>
   </div>
 
 <script>
-async function refresh() {
-  const res = await fetch(`/api/jobs/{{ job_id }}`);
-  if (!res.ok) {
-    document.getElementById('status').innerText = "Job not found.";
-    return;
-  }
-  const data = await res.json();
-  const pct = parseInt(data.progress || "0", 10);
-  document.getElementById('bar').style.width = pct + "%";
-  document.getElementById('status').innerText =
-    `${data.status} — ${pct}% — ${data.message} (done ${data.done_files}/${data.total_files})`;
+let finished = false;
 
-  if (data.status === "done") {
-    const d = document.getElementById('downloads');
-    const items = data.result_index || [];
-    if (items.length) {
-      d.innerHTML = "<h3>Downloads</h3>" + items.map((it, idx) =>
-        `<div style="margin:8px 0;">
-           <b>${it.video}</b> —
-           <a href="/download/{{ job_id }}/${idx}">Download DOCX</a>
-         </div>`
-      ).join("");
-    } else {
-      d.innerHTML = "<p>No outputs found.</p>";
+async function refresh() {
+  if (finished) return;
+
+  try {
+    const res = await fetch(`/api/jobs/{{ job_id }}`);
+    if (!res.ok) {
+      document.getElementById('status').innerText = "Job not found.";
+      return;
     }
-    return;
+
+    const data = await res.json();
+
+    const pct = Math.min(
+      100,
+      Math.max(0, parseInt(data.progress || "0", 10))
+    );
+
+    document.getElementById('bar').style.width = pct + "%";
+
+    document.getElementById('status').innerText =
+      `${data.status} — ${pct}% — ${data.message} (done ${data.done_files}/${data.total_files})`;
+
+    // --------------------------------------------------
+    // Finished
+    // --------------------------------------------------
+    if (data.status === "done") {
+      finished = true;
+
+      const d = document.getElementById('downloads');
+      const items = data.result_index || [];
+
+      if (items.length) {
+        d.innerHTML =
+          "<h3>Downloads</h3>" +
+          items.map((it, idx) => `
+            <div style="margin:8px 0;">
+              <b>${it.video}</b> —
+              <a href="/download/{{ job_id }}/${idx}">Download DOCX</a>
+            </div>
+          `).join("");
+      } else {
+        d.innerHTML = "<p>No outputs found.</p>";
+      }
+
+      return;
+    }
+
+    // --------------------------------------------------
+    // Poll again (smoother = 500ms)
+    // --------------------------------------------------
+    setTimeout(refresh, 500);
+
+  } catch (err) {
+    document.getElementById('status').innerText =
+      "Error contacting server. Retrying…";
+    setTimeout(refresh, 1500);
   }
-  setTimeout(refresh, 1500);
 }
+
+// Initial call
 refresh();
 </script>
 </body>
