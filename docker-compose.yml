@@ -1,37 +1,15 @@
+version: "3.9"
 services:
   redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-
+    image: redis:7
   web:
     build: .
     ports:
       - "8050:8050"
-    volumes:
-      - ./app/data:/app/app/data
-      - ./app/templates/template.docx:/app/app/templates/template.docx
-      - ./app/data/models:/root/.cache/huggingface
-    environment:
-      - REDIS_URL=redis://redis:6379/0
-      - WHISPER_MODEL=small
-      - DEVICE=cpu
-      - FRAME_INTERVAL_SECONDS=2
     depends_on:
       - redis
-
   worker:
     build: .
-    volumes:
-      - ./app/data:/app/app/data
-      - ./app/templates/template.docx:/app/app/templates/template.docx
-      - ./app/data/models:/root/.cache/huggingface
-    environment:
-      - REDIS_URL=redis://redis:6379/0
-      - WHISPER_MODEL=small
-      - DEVICE=cpu
-      - FRAME_INTERVAL_SECONDS=2
+    command: ["python", "-m", "app.worker"]
     depends_on:
       - redis
-    command: ["python", "-m", "app.worker"]
-

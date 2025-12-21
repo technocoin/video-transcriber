@@ -1,29 +1,11 @@
 import subprocess
 from pathlib import Path
 
-
-def extract_frames(video_path: str, output_dir: str, interval: int = 2) -> list[str]:
-    """
-    Extract 1 frame every `interval` seconds
-    """
-    output_dir = Path(output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    frame_pattern = output_dir / "frame_%05d.jpg"
-
+def extract_frames(video_path, output_dir, interval=2):
+    out = Path(output_dir)
+    out.mkdir(parents=True, exist_ok=True)
     subprocess.run(
-        [
-            "ffmpeg",
-            "-y",
-            "-i",
-            video_path,
-            "-vf",
-            f"fps=1/{interval}",
-            str(frame_pattern),
-        ],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        check=True,
+        ["ffmpeg", "-y", "-i", video_path, "-vf", f"fps=1/{interval}", str(out / "frame_%05d.jpg")],
+        check=True
     )
-
-    return sorted(str(p) for p in output_dir.glob("frame_*.jpg"))
+    return [str(p) for p in out.glob("frame_*.jpg")]
